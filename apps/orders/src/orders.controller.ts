@@ -19,7 +19,6 @@ export class OrdersController {
 
   @MessagePattern({ cmd: 'addItem' })
   async addItemToCart(data: any) {
-    console.log('controller ');
     const { userId, item } = data;
     return await this.ordersService.addItemToCart(userId, item);
   }

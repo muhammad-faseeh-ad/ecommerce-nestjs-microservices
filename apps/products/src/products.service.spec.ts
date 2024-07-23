@@ -24,21 +24,12 @@ describe('ProductsService', () => {
 
   const mockProductModel = {
     findById: jest.fn(),
-    // findById: jest.fn().mockImplementation((id: string) => ({
-    //   exec: jest.fn().mockResolvedValue(mockProduct),
-    // })),
+
     create: jest.fn().mockImplementation((product: CreateProductDto) => ({
       save: jest.fn().mockResolvedValue(product),
     })),
     find: jest.fn(),
-    // find: jest.fn().mockImplementation(() => ({
-    //   exec: jest.fn().mockResolvedValue([mockProduct]),
-    // })),
-    // findByIdAndUpdate: jest
-    //   .fn()
-    //   .mockImplementation((id: string, update: any) => ({
-    //     exec: jest.fn().mockResolvedValue(mockProduct),
-    //   })),
+
     findByIdAndUpdate: jest.fn(),
     findByIdAndDelete: jest.fn().mockImplementation(() => ({
       exec: jest.fn().mockResolvedValue(mockProduct),
@@ -58,10 +49,6 @@ describe('ProductsService', () => {
 
     productsService = module.get<ProductsService>(ProductsService);
     model = module.get<Model<ProductDocument>>(getModelToken(Product.name));
-  });
-
-  it('should be defined', () => {
-    expect(productsService).toBeDefined();
   });
 
   describe('getProduct', () => {
@@ -101,7 +88,6 @@ describe('ProductsService', () => {
       expect(model.find).toHaveBeenCalled();
     });
   });
-
   describe('addProduct', () => {
     it('should add and return the new product', async () => {
       const newProductDto: CreateProductDto = {

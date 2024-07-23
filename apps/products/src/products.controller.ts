@@ -1,18 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { Product } from './schemas/product.schema';
-import { FilterProductDto } from 'shared/dtos/filter-product-dto';
 import { CreateProductDto } from 'shared/dtos/create-product-dto';
 import { ProductsService } from './products.service';
 import { MessagePattern } from '@nestjs/microservices';
+import { FilterProductDto } from 'shared/dtos/filter-product-dto';
 
 @Controller('store/products')
 export class ProductsController {
   constructor(private productService: ProductsService) {}
-
-  @Get()
-  getHello(): string {
-    return this.productService.getHello();
-  }
 
   @MessagePattern({ cmd: 'getProducts' })
   async getProds(filters: FilterProductDto): Promise<Product[]> {

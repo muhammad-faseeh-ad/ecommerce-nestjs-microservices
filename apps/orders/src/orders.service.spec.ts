@@ -76,10 +76,6 @@ describe(' Test suite', () => {
     productsClient = module.get<ClientProxy>('PRODUCTSMS');
   });
 
-  it('should be defined', () => {
-    expect(ordersService).toBeDefined();
-  });
-
   describe('createCart', () => {
     it('should create a new cart', async () => {
       const userId = '12345';

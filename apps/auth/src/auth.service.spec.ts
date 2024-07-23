@@ -48,10 +48,6 @@ describe(' Test suite', () => {
     jwtService = module.get<JwtService>(JwtService);
   });
 
-  it('should be defined', () => {
-    expect(authService).toBeDefined();
-  });
-
   describe('addUser', () => {
     it('should add a user', async () => {
       const createUserDto = {

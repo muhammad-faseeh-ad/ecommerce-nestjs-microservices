@@ -1,145 +1,142 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ProductsController } from './products.controller';
-import { ProductsService } from './products.service';
+import { INestMicroservice } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 import { CreateProductDto } from 'shared/dtos/create-product-dto';
+import { ClientsModule, Transport, ClientProxy } from '@nestjs/microservices';
+import { Product, ProductSchema } from '../src/schemas/product.schema';
+import { ProductsController } from '../src/products.controller';
+import { ProductsService } from '../src/products.service';
 import { FilterProductDto } from 'shared/dtos/filter-product-dto';
 
-describe('ProductsController', () => {
-  let productsService: ProductsService;
-  let productsController: ProductsController;
+jest.setTimeout(20000);
 
-  const mockProduct = {
-    _id: '668bd1aca18f8f09532f0b10',
-    name: 'M1',
-    author: 'S1',
-    rating: 11.99,
-    category: 'mystery',
-    stock: 100,
-    createdAt: new Date('2024-07-08T11:46:52.656Z'),
-    updatedAt: new Date('2024-07-08T11:46:52.656Z'),
-    __v: 0,
-  };
+describe('ProductsController (Microservice)', () => {
+  let app: INestMicroservice;
+  let client: ClientProxy;
+  let mongoServer: MongoMemoryServer;
+  let productModel: mongoose.Model<Product>;
 
-  const mockProductService = {
-    getHello: jest.fn().mockReturnValue('Hello World!'),
-    getProduct: jest.fn(),
-    getProducts: jest.fn(),
-    addProduct: jest.fn(),
-    updateProduct: jest.fn(),
-    deleteProduct: jest.fn(),
-  };
+  beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
 
-  beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [ProductsController],
-      providers: [
-        {
-          provide: ProductsService,
-          useValue: mockProductService,
-        },
+      imports: [
+        MongooseModule.forRoot(uri),
+        MongooseModule.forFeature([
+          { name: Product.name, schema: ProductSchema },
+        ]),
+        ClientsModule.register([
+          {
+            name: 'PRODUCTS_SERVICE',
+            transport: Transport.TCP,
+          },
+        ]),
       ],
+      controllers: [ProductsController],
+      providers: [ProductsService],
     }).compile();
 
-    productsController = module.get<ProductsController>(ProductsController);
-    productsService = module.get<ProductsService>(ProductsService);
+    app = module.createNestMicroservice({
+      transport: Transport.TCP,
+    });
+
+    await app.listen();
+
+    client = app.get('PRODUCTS_SERVICE');
+    productModel = module.get<mongoose.Model<Product>>('ProductModel');
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(productsController.getHello()).toBe('Hello World!');
-    });
+  afterAll(async () => {
+    jest.setTimeout(10000);
+    await mongoose.connection.dropDatabase();
+    await mongoose.connection.close();
+    await mongoServer.stop();
+    await app.close();
   });
 
-  describe('getProduct', () => {
-    it('should return the product', async () => {
-      jest.spyOn(productsService, 'getProduct').mockResolvedValue(mockProduct);
-      const result = await productsController.getProductById(mockProduct._id);
-      expect(result).toEqual(mockProduct);
-      expect(productsService.getProduct).toHaveBeenCalledWith(mockProduct._id);
-    });
+  it('should create a product', async () => {
+    const createProductDto: CreateProductDto = {
+      name: 'Test Product',
+      author: 'Test Author',
+      rating: 5,
+      category: 'Test Category',
+      stock: 10,
+    };
+
+    const response = await client
+      .send({ cmd: 'addProduct' }, createProductDto)
+      .toPromise();
+    expect(response.name).toBe(createProductDto.name);
   });
 
-  describe('getProducts', () => {
-    it('should return an array of products', async () => {
-      const filters: FilterProductDto = { search: 'M1', category: 'mystery' };
-      jest
-        .spyOn(productsService, 'getProducts')
-        .mockResolvedValue([mockProduct as any]);
-      const result = await productsController.getProds(filters);
-      expect(result).toEqual([mockProduct]);
-      expect(productsService.getProducts).toHaveBeenCalled();
-    });
+  it('should get products', async () => {
+    const filterProductDto: Partial<FilterProductDto> = {};
 
-    it('should return all products if no filters are provided', async () => {
-      const result = await productsController.getProds({
-        search: '',
-        category: '',
-      });
-      expect(result).toEqual([mockProduct]);
-      expect(productsService.getProducts).toHaveBeenCalled();
-    });
+    const response = await client
+      .send({ cmd: 'getProducts' }, filterProductDto)
+      .toPromise();
+    expect(response).toBeInstanceOf(Array);
   });
 
-  describe('addProduct', () => {
-    it('should add and return the new product', async () => {
-      const newProductDto: CreateProductDto = {
-        name: 'M2',
-        author: 'S2',
-        rating: 12.99,
-        category: 'thriller',
-        stock: 50,
-      };
-      jest
-        .spyOn(productsService, 'addProduct')
-        .mockResolvedValueOnce(newProductDto);
-      const result = await productsController.addProduct(newProductDto);
-      expect(result).toEqual(newProductDto);
-      expect(productsService.addProduct).toHaveBeenCalledWith(newProductDto);
+  it('should get a product by id', async () => {
+    const product = await productModel.create({
+      name: 'Test Product',
+      author: 'Test Author',
+      rating: 5,
+      category: 'Test Category',
+      stock: 10,
     });
+
+    const response = await client
+      .send({ cmd: 'getProduct' }, product._id.toString())
+      .toPromise();
+    expect(response._id).toBe(product._id.toString());
   });
 
-  describe('updateProduct', () => {
-    it('should update and return the product', async () => {
-      const updatedProductDto: Partial<CreateProductDto> = {
-        name: 'Updated M1',
-      };
-      const updatedProduct = { ...mockProduct, name: 'Updated M1' };
-      jest.spyOn(productsService, 'updateProduct').mockImplementation(() => {
-        return updatedProduct as any;
-      });
-      const data = { id: mockProduct._id, product: updatedProductDto };
-      const result = await productsController.updateProduct(data);
-      expect(result.name).toEqual(updatedProductDto.name);
-      expect(productsService.updateProduct).toHaveBeenCalledWith(
-        mockProduct._id,
-        updatedProductDto,
-      );
+  it('should update a product', async () => {
+    const product = await productModel.create({
+      name: 'Test Product',
+      author: 'Test Author',
+      rating: 5,
+      category: 'Test Category',
+      stock: 10,
     });
+
+    const updatedProduct = {
+      name: 'Updated Product',
+      author: 'Updated Author',
+      rating: 4,
+      category: 'Updated Category',
+      stock: 15,
+    };
+
+    const response = await client
+      .send(
+        { cmd: 'updateProduct' },
+        { id: product._id.toString(), product: updatedProduct },
+      )
+      .toPromise();
+    expect(response.name).toBe(updatedProduct.name);
   });
 
-  describe('deleteProduct', () => {
-    it('should delete and return the product', async () => {
-      const mockProductId = '668bd1aca18f8f09532f0b10';
-      const mockProduct = {
-        _id: mockProductId,
-        name: 'M1',
-        author: 'S1',
-        rating: 11.99,
-        category: 'mystery',
-        stock: 100,
-        createdAt: new Date('2024-07-08T11:46:52.656Z'),
-        updatedAt: new Date('2024-07-08T11:46:52.656Z'),
-        __v: 0,
-      };
-
-      jest
-        .spyOn(productsService, 'deleteProduct')
-        .mockResolvedValue(mockProduct);
-
-      const result = await productsController.deleteProduct(mockProductId);
-
-      expect(result).toEqual(mockProduct);
-      expect(productsService.deleteProduct).toHaveBeenCalledWith(mockProductId);
+  it('should delete a product', async () => {
+    const product = await productModel.create({
+      name: 'Test Product',
+      author: 'Test Author',
+      rating: 5,
+      category: 'Test Category',
+      stock: 10,
     });
+
+    const response = await client
+      .send({ cmd: 'deleteProduct' }, product._id.toString())
+      .toPromise();
+    expect(response._id).toBe(product._id.toString());
+
+    const deletedProduct = await productModel.findById(product._id);
+    expect(deletedProduct).toBeNull();
   });
 });

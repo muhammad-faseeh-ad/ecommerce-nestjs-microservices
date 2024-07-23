@@ -26,7 +26,6 @@ export class OrdersService {
   ) {
     const { productId, quantity } = item;
 
-    //const product = await this.productService.getProduct(productId);
     const product: any = await this.productsClient.send(
       { cmd: 'getProduct' },
       productId,
@@ -48,7 +47,6 @@ export class OrdersService {
       path: 'userId',
       model: 'User',
     });
-    // .populate({ path: 'items.productId', model: 'Product' });
 
     return cart;
   }
@@ -61,9 +59,6 @@ export class OrdersService {
   async recalCart(cart: CartDocument) {
     cart.totalPrice = 0;
     cart.items.forEach(async (item) => {
-      // const product = await this.productService.getProduct(
-      //   item.productId.toString(),
-      // );
       const product: any = this.productsClient.send(
         { cmd: 'getProduct' },
         item.productId.toString(),
@@ -74,10 +69,8 @@ export class OrdersService {
   }
 
   async addItemToCart(userid: string, item: ItemDto): Promise<Cart> {
-    //rating is price
     const { productId, quantity } = item;
 
-    //const product = await this.productService.getProduct(productId);
     const product: any = await this.productsClient
       .send({ cmd: 'getProduct' }, productId)
       .toPromise();
@@ -96,7 +89,6 @@ export class OrdersService {
       );
 
       if (itemIdx > -1) {
-        //item exists
         const myitem = cart.items[itemIdx];
         myitem.quantity = Number(myitem.quantity) + Number(quantity);
         myitem.subtotal = myitem.quantity * product.rating;
@@ -110,8 +102,7 @@ export class OrdersService {
         return cart.save();
       }
     } else {
-      console.log('inside add item');
-      const newCart = await this.createCart(userid, item, subtotal, subtotal); //at start total price is equal to subtotal
+      const newCart = await this.createCart(userid, item, subtotal, subtotal);
       product.stock -= quantity;
       return newCart;
     }
@@ -131,7 +122,6 @@ export class OrdersService {
     }
   }
 
-  //orders
   async findOrder(userId: string, id: string): Promise<Order> {
     return await this.orderModel.findOne({ _id: id, userId: userId });
   }
@@ -155,7 +145,7 @@ export class OrdersService {
       const productRequired = await this.productsClient
         .send({ cmd: 'getProduct' }, item.productId)
         .toPromise();
-      //const product = await this.productService.getProduct(item.productId);
+
       productRequired.stock -= item.quantity;
 
       const product = {
@@ -172,8 +162,8 @@ export class OrdersService {
         .toPromise();
     });
 
-    await this.deleteCart(userId); //as order created so no need of cart
-    //return await order.save();
+    await this.deleteCart(userId);
+
     return (
       await (await order.save()).populate({ path: 'userId', model: 'User' })
     ).populate({ path: 'items.productId', model: 'Product' });
@@ -203,7 +193,7 @@ export class OrdersService {
       const productRequired = await this.productsClient
         .send({ cmd: 'getProduct' }, item.productId)
         .toPromise();
-      //const product = await this.productService.getProduct(item.productId);
+
       productRequired.stock -= item.quantity;
 
       const product = {

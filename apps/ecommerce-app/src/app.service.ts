@@ -14,10 +14,6 @@ export class AppService {
     @Inject('ORDERS') private orderClient: ClientProxy,
   ) {}
 
-  getHello(): string {
-    return 'Hello World!!!!';
-  }
-
   //USERS
   async register(createUserDTO: CreateUserDto) {
     return this.authClient.send({ cmd: 'register' }, createUserDTO);
@@ -56,12 +52,10 @@ export class AppService {
 
   //CART
   async getUserCart(userId: any) {
-    console.log(userId);
     return this.orderClient.send({ cmd: 'getCart' }, userId);
   }
 
   async addItemToCart(data: any) {
-    console.log('controller ');
     return await this.orderClient.send({ cmd: 'addItem' }, data);
   }
 

@@ -14,10 +14,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  getHello(): string {
-    return 'Hello World! From AuthMS';
-  }
-
   async addUser(user: CreateUserDto): Promise<User> {
     const salt = await bcrypt.genSalt();
     const password = await bcrypt.hash(user.password, salt);
@@ -32,7 +28,6 @@ export class AuthService {
 
   async validateUser(username: string, password: string): Promise<User> {
     const user = await this.findUser(username);
-    console.log('auth service val user::', user);
 
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (user && isPasswordMatch) {

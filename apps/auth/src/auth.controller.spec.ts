@@ -12,7 +12,6 @@ describe('AuthController', () => {
   let localAuthGuard: LocalAuthGuard;
 
   const mockAuthService = {
-    getHello: jest.fn().mockReturnValue('Hello World! From AuthMS'),
     addUser: jest.fn(),
     login: jest.fn(),
     validateUser: jest.fn(),
@@ -49,12 +48,6 @@ describe('AuthController', () => {
     authController = module.get<AuthController>(AuthController);
     authService = module.get<AuthService>(AuthService);
     localAuthGuard = new LocalAuthGuard(authService);
-  });
-
-  describe('root', () => {
-    it('should return "Hello World! From AuthMS"', () => {
-      expect(authController.getHello()).toBe('Hello World! From AuthMS');
-    });
   });
 
   describe('addUser', () => {

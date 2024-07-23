@@ -4,11 +4,13 @@ import { AppService } from './app.service';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from 'shared/strategies/jwt.strategy';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     JwtModule.register({
-      secret: 'no secret',
+      secret: process.env.SECRET_KEY,
       signOptions: { expiresIn: 3000 },
     }),
     ClientsModule.register([

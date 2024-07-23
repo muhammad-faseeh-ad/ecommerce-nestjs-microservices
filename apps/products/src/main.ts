@@ -10,7 +10,7 @@ async function bootstrap() {
       options: { port: 3001 },
     },
   );
-  // const app = await NestFactory.create(ProductsModule);
+
   await app.listen();
 }
 bootstrap();

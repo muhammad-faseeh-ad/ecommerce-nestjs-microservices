@@ -12,22 +12,11 @@ import { CreateUserDto } from 'shared/dtos/create-user-dtos';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Get()
-  getHello(): string {
-    return this.authService.getHello();
-  }
-
   @MessagePattern({ cmd: 'register' })
   async register(createUserDTO: CreateUserDto) {
     const user = await this.authService.addUser(createUserDTO);
     return user;
   }
-
-  // @MessagePattern({cmd:'login'})
-  // //@UseGuards(LocalAuthGuard)
-  // async login(user): Promise<{ access_token: string }> {
-  //   return this.authService.login(user);
-  // }
 
   @MessagePattern({ cmd: 'login' })
   async login(data: any): Promise<any> {

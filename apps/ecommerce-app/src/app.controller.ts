@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  Get,
   Param,
   Patch,
   Post,
@@ -11,6 +10,8 @@ import {
   Request,
   Req,
   NotFoundException,
+  Put,
+  Get,
 } from '@nestjs/common';
 import { AppService } from './app.service';
 import { CreateProductDto } from 'shared/dtos/create-product-dto';
@@ -24,29 +25,22 @@ import { ItemDto } from 'shared/dtos/item.dto';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
-  }
-
   //Auth
   @Post('auth/register')
   async register(@Body() createUserDTO: CreateUserDto) {
     return this.appService.register(createUserDTO);
   }
 
-  //@UseGuards(LocalAuthGuard)
   @Post('auth/login')
   async login(
     @Body() { username, password },
   ): Promise<Observable<{ access_token: string }>> {
-    //console.log(username,password)
     const user = { username, password };
     return this.appService.login(user);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post('store/products')
+  //@UseGuards(JwtAuthGuard)
+  @Get('store/products')
   async getProds(
     @Query()
     filters: FilterProductDto,
@@ -54,7 +48,7 @@ export class AppController {
     return this.appService.getProducts(filters);
   }
 
-  @Post('store/products/addProduct')
+  @Post('store/products/')
   async addProduct(
     @Body()
     product: CreateProductDto,
@@ -62,7 +56,7 @@ export class AppController {
     return this.appService.addProduct(product);
   }
 
-  @Post('store/products/:id')
+  @Get('store/products/:id')
   async getProductById(
     @Param('id')
     id: string,
@@ -70,10 +64,21 @@ export class AppController {
     return this.appService.getProduct(id);
   }
 
+  @Put('store/products/:id')
+  async updateProductPut(
+    @Body()
+    product: Partial<CreateProductDto>,
+
+    @Param('id')
+    id: string,
+  ): Promise<Observable<any>> {
+    return this.appService.updateProduct(id, product);
+  }
+
   @Patch('store/products/:id')
   async updateProduct(
     @Body()
-    product: Partial<CreateProductDto>,
+    product: CreateProductDto,
 
     @Param('id')
     id: string,
@@ -91,13 +96,12 @@ export class AppController {
 
   //Carts
 
-  @Post('store/cart/getCart')
+  @Get('store/cart/')
   @UseGuards(JwtAuthGuard)
   async getUserCart(
     @Req()
     req,
   ) {
-    console.log(req.user.userId);
     return await this.appService.getUserCart(req.user.userId);
   }
 
@@ -109,7 +113,6 @@ export class AppController {
     @Body()
     item: ItemDto,
   ) {
-    console.log('controller ');
     const userId = req.user.userId;
     const data = { userId, item };
     return await this.appService.addItemToCart(data);

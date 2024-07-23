@@ -12,10 +12,6 @@ export class ProductsService {
     private ProductModel: mongoose.Model<ProductDocument>,
   ) {}
 
-  getHello(): string {
-    return 'Hello World!';
-  }
-
   async getProducts(
     filterProductDto: Partial<FilterProductDto>,
   ): Promise<Product[]> {
@@ -70,23 +66,4 @@ export class ProductsService {
 
     return deleted;
   }
-
-  //   async getFilteredProducts(filters: FilterProductDto): Promise<Product[]> {
-  //     const { search, category } = filters;
-
-  //     let products = await this.getProducts();
-
-  //     if (search) {
-  //       products = products.filter(
-  //         (product) =>
-  //           product.name.includes(search) || product.author.includes(search),
-  //       );
-  //     }
-
-  //     if (category) {
-  //       products = products.filter((product) => product.category === category);
-  //     }
-
-  //     return products;
-  //   }
 }

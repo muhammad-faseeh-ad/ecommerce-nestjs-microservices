@@ -10,12 +10,11 @@ import { OrderSchema } from './schemas/order.schema';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { UserSchema } from './schemas/user.schema';
 import { ProductSchema } from './schemas/product.schema';
-
-const username = encodeURIComponent('fasseeh111');
-const password = encodeURIComponent('1JeDAVbJzCvAKG2x');
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     ClientsModule.register([
       {
         name: 'PRODUCTSMS',
@@ -23,9 +22,7 @@ const password = encodeURIComponent('1JeDAVbJzCvAKG2x');
         options: { port: 3001 },
       },
     ]),
-    MongooseModule.forRoot(
-      `mongodb+srv://${username}:${password}@cluster0.p1gygz9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`,
-    ),
+    MongooseModule.forRoot(process.env.DB_URI),
     MongooseModule.forFeature([
       { name: 'Cart', schema: CartSchema },
       { name: 'Item', schema: ItemSchema },
