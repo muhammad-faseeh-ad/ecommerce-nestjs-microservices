@@ -58,6 +58,17 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## DFD Level 1
+![Level1](https://github.com/user-attachments/assets/0659e5e3-debd-4f20-a239-d9d0cf0346b8)
+
+
+## DFD Level 2
+![Level2](https://github.com/user-attachments/assets/2d773a73-235c-4591-9ffe-61c90fcf1da7)
+
+
+## ERD
+![ERDDiagram](https://github.com/user-attachments/assets/2c9bee1b-325c-48ee-8107-1d52ea329f76)
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
@@ -71,3 +82,6 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](LICENSE).
+
+
+
