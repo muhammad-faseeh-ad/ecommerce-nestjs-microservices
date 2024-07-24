@@ -4,6 +4,7 @@ export class FilterProductDto {
   @IsOptional()
   @IsString()
   search: string;
+
   @IsString()
   @IsOptional()
   category: string;

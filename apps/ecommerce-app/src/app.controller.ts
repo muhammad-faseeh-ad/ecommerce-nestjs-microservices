@@ -48,7 +48,7 @@ export class AppController {
     return this.appService.getProducts(filters);
   }
 
-  @Post('store/products/')
+  @Post('store/products')
   async addProduct(
     @Body()
     product: CreateProductDto,
@@ -96,7 +96,7 @@ export class AppController {
 
   //Carts
 
-  @Get('store/cart/')
+  @Get('store/cart')
   @UseGuards(JwtAuthGuard)
   async getUserCart(
     @Req()
