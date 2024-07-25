@@ -7,7 +7,7 @@ async function bootstrap() {
     OrdersModule,
     {
       transport: Transport.TCP,
-      options: { port: 3003 },
+      options: { host: 'orders', port: 3003 },
     },
   );
   await app.listen();

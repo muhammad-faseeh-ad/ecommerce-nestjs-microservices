@@ -1,0 +1,68 @@
+version: '3.8'
+services:
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+    container_name: auth_service
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: production
+      DB_URI: ${DB_URI}
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - mongo
+
+  products:
+    build:
+      context: .
+      dockerfile: apps/products/Dockerfile
+    container_name: products_service
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      DB_URI: ${DB_URI}
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - mongo
+
+  orders:
+    build:
+      context: .
+      dockerfile: apps/orders/Dockerfile
+    container_name: orders_service
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: production
+      DB_URI: ${DB_URI}
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - mongo
+
+  ecommerce-app:
+    build:
+      context: .
+      dockerfile: apps/ecommerce-app/Dockerfile
+    container_name: ecommerce_gateway
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DB_URI: ${DB_URI}
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - auth
+      - products
+      - orders
+
+  mongo:
+    image: mongo
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}

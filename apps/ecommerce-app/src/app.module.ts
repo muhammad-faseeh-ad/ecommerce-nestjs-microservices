@@ -17,17 +17,17 @@ import { ConfigModule } from '@nestjs/config';
       {
         name: 'PRODUCTS',
         transport: Transport.TCP,
-        options: { port: 3001 },
+        options: { host: 'products', port: 3001 },
       },
       {
         name: 'AUTH',
         transport: Transport.TCP,
-        options: { port: 3002 },
+        options: { host: 'auth', port: 3002 },
       },
       {
         name: 'ORDERS',
         transport: Transport.TCP,
-        options: { port: 3003 },
+        options: { host: 'orders', port: 3003 },
       },
     ]),
   ],
