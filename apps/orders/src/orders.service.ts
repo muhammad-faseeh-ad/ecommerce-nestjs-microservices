@@ -126,90 +126,117 @@ export class OrdersService {
     return await this.orderModel.findOne({ _id: id, userId: userId });
   }
   async createOrder(userId: string): Promise<Order> {
-    const cart = await this.getCart(userId);
+    const session = await this.orderModel.startSession();
+    session.startTransaction();
+    try {
+      const cart = await this.CartModel.findOne({ userId: userId })
+        .session(session)
+        .exec();
 
-    if (!cart) {
-      throw new RpcException('Cart empty');
+      if (!cart) {
+        throw new RpcException('Cart empty');
+      }
+      if (cart.items.length === 0) {
+        throw new RpcException('Cart empty');
+      }
+
+      const order = new this.orderModel({
+        userId: cart.userId,
+        items: cart.items,
+        totalPrice: cart.totalPrice,
+      });
+
+      await order.save({ session });
+
+      cart.items.forEach(async (item) => {
+        const productRequired = await this.productsClient
+          .send({ cmd: 'getProduct' }, item.productId)
+          .toPromise();
+
+        productRequired.stock -= item.quantity;
+
+        const product = {
+          name: productRequired.name,
+          author: productRequired.author,
+          rating: productRequired.rating,
+          category: productRequired.category,
+          stock: productRequired.stock,
+        };
+        const id = item.productId;
+        const data = { id, product };
+        await this.productsClient
+          .send({ cmd: 'updateProduct' }, data)
+          .toPromise();
+      });
+
+      await this.deleteCart(userId);
+
+      await session.commitTransaction();
+
+      return await order.populate({ path: 'userId', model: 'User' });
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
     }
-    if (cart.items.length === 0) {
-      throw new RpcException('Cart empty');
-    }
-
-    const order = await this.orderModel.create({
-      userId: (await cart).userId,
-      items: (await cart).items,
-      totalPrice: (await cart).totalPrice,
-    });
-
-    cart.items.forEach(async (item) => {
-      const productRequired = await this.productsClient
-        .send({ cmd: 'getProduct' }, item.productId)
-        .toPromise();
-
-      productRequired.stock -= item.quantity;
-
-      const product = {
-        name: productRequired.name,
-        author: productRequired.author,
-        rating: productRequired.rating,
-        category: productRequired.category,
-        stock: productRequired.stock,
-      };
-      const id = item.productId;
-      const data = { id, product };
-      await this.productsClient
-        .send({ cmd: 'updateProduct' }, data)
-        .toPromise();
-    });
-
-    await this.deleteCart(userId);
-
-    return (
-      await (await order.save()).populate({ path: 'userId', model: 'User' })
-    ).populate({ path: 'items.productId', model: 'Product' });
   }
 
   async cancelOrder(userId: string, id: string) {
-    const existingOrder = await this.findOrder(userId, id);
+    const session = await this.orderModel.startSession();
+    session.startTransaction();
+    try {
+      const existingOrder = await this.findOrder(userId, id);
 
-    if (!existingOrder) {
-      throw new RpcException('No Order Exists');
+      if (!existingOrder) {
+        throw new RpcException('No Order Exists');
+      }
+
+      if (existingOrder.status === 'Cancelled') {
+        throw new RpcException('Order Already Cancelled');
+      }
+      const cancelledOrder = await this.orderModel
+        .findOneAndUpdate(
+          { userId: userId, _id: id },
+          {
+            userId: existingOrder.userId,
+            items: existingOrder.items,
+            totalPrice: existingOrder.totalPrice,
+            status: 'Cancelled',
+          },
+          { new: true, session },
+        )
+        .exec();
+
+      existingOrder.items.forEach(async (item) => {
+        const productRequired = await this.productsClient
+          .send({ cmd: 'getProduct' }, item.productId)
+          .toPromise();
+
+        productRequired.stock -= item.quantity;
+
+        const product = {
+          name: productRequired.name,
+          author: productRequired.author,
+          rating: productRequired.rating,
+          category: productRequired.category,
+          stock: productRequired.stock,
+        };
+        const id = item.productId;
+        const data = { id, product };
+        await this.productsClient
+          .send({ cmd: 'updateProduct' }, data)
+          .toPromise();
+      });
+
+      await session.commitTransaction();
+
+      return cancelledOrder;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
     }
-
-    if (existingOrder.status === 'Cancelled') {
-      throw new RpcException('Order Already Cancelled');
-    }
-    const cancelledOrder = await this.orderModel.findOneAndUpdate(
-      { userId: userId, _id: id },
-      {
-        userId: existingOrder.userId,
-        items: existingOrder.items,
-        totalPrice: existingOrder.totalPrice,
-        status: 'Cancelled',
-      },
-    );
-
-    existingOrder.items.forEach(async (item) => {
-      const productRequired = await this.productsClient
-        .send({ cmd: 'getProduct' }, item.productId)
-        .toPromise();
-
-      productRequired.stock -= item.quantity;
-
-      const product = {
-        name: productRequired.name,
-        author: productRequired.author,
-        rating: productRequired.rating,
-        category: productRequired.category,
-        stock: productRequired.stock,
-      };
-      const id = item.productId;
-      const data = { id, product };
-      await this.productsClient
-        .send({ cmd: 'updateProduct' }, data)
-        .toPromise();
-    });
-
-    return cancelledOrder;
   }
 }

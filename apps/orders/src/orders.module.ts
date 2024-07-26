@@ -19,7 +19,7 @@ import { ConfigModule } from '@nestjs/config';
       {
         name: 'PRODUCTSMS',
         transport: Transport.TCP,
-        options: { port: 3001 },
+        options: { host: 'products', port: 3001 },
       },
     ]),
     MongooseModule.forRoot(process.env.DB_URI),

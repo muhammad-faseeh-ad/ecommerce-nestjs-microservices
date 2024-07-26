@@ -17,7 +17,7 @@ import { ConfigModule } from '@nestjs/config';
       {
         name: 'PRODUCTS',
         transport: Transport.TCP,
-        options: { host: 'products', port: 3001 },
+        options: { port: 3001 },
       },
       {
         name: 'AUTH',
