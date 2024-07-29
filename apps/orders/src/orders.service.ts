@@ -1,22 +1,19 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Cart, CartDocument } from './schemas/cart.schema';
-import mongoose from 'mongoose';
-import { Order } from './schemas/order.schema';
+import { Injectable, Inject } from '@nestjs/common';
+import { CartRepository } from './cart.repository';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { ItemDto } from 'shared/dtos/item.dto';
+import { Order } from './schemas/order.schema';
+import { CartDocument } from './schemas/cart.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import mongoose from 'mongoose';
 
 @Injectable()
 export class OrdersService {
   constructor(
-    @InjectModel(Cart.name) private CartModel: mongoose.Model<CartDocument>,
+    private cartRepository: CartRepository,
     @InjectModel(Order.name) private orderModel: mongoose.Model<Order>,
     @Inject('PRODUCTSMS') private productsClient: ClientProxy,
   ) {}
-
-  getHello(): string {
-    return 'Hello World! From Orders';
-  }
 
   async createCart(
     userId: string,
@@ -24,101 +21,76 @@ export class OrdersService {
     subTotalPrice: number,
     totalPrice: number,
   ) {
-    const { productId, quantity } = item;
-
-    const product: any = await this.productsClient.send(
-      { cmd: 'getProduct' },
-      productId,
-    );
-    if (product.stock < quantity) {
-      throw new RpcException('Required quantity not avialable');
-    }
-    return (
-      await this.CartModel.create({
-        userId,
-        items: [{ ...item, subTotalPrice }],
-        totalPrice,
-      })
-    ).save();
-  }
-
-  async getCart(userId: string): Promise<CartDocument> {
-    const cart = await this.CartModel.findOne({ userId: userId }).populate({
-      path: 'userId',
-      model: 'User',
-    });
-
-    return cart;
-  }
-
-  async deleteCart(userId: string): Promise<Cart> {
-    const cart = await this.CartModel.findOneAndDelete({ userId: userId });
-    return cart;
-  }
-
-  async recalCart(cart: CartDocument) {
-    cart.totalPrice = 0;
-    cart.items.forEach(async (item) => {
-      const product: any = this.productsClient.send(
-        { cmd: 'getProduct' },
-        item.productId.toString(),
-      );
-
-      cart.totalPrice += item.quantity * product.rating;
-    });
-  }
-
-  async addItemToCart(userid: string, item: ItemDto): Promise<Cart> {
-    const { productId, quantity } = item;
-
     const product: any = await this.productsClient
-      .send({ cmd: 'getProduct' }, productId)
+      .send({ cmd: 'getProduct' }, item.productId)
       .toPromise();
 
-    if (product.stock < quantity) {
-      throw new RpcException('Required quantity not avialable');
+    if (product.stock < item.quantity) {
+      throw new RpcException('Required quantity not available');
     }
 
-    const subtotal = product.rating * quantity;
+    return this.cartRepository.createCart(userId, [item], totalPrice);
+  }
 
-    const cart = await this.getCart(userid);
+  async getCart(userId: string) {
+    return this.cartRepository.findCartByUserId(userId);
+  }
+
+  async deleteCart(userId: string) {
+    return this.cartRepository.deleteCartByUserId(userId);
+  }
+
+  async addItemToCart(userId: string, item: ItemDto) {
+    const product: any = await this.productsClient
+      .send({ cmd: 'getProduct' }, item.productId)
+      .toPromise();
+
+    if (product.stock < item.quantity) {
+      throw new RpcException('Required quantity not available');
+    }
+
+    const cart = await this.getCart(userId);
 
     if (cart) {
       const itemIdx = cart.items.findIndex(
-        (item) => item.productId.toString() == productId,
+        (i) => i.productId.toString() === item.productId,
       );
 
       if (itemIdx > -1) {
-        const myitem = cart.items[itemIdx];
-        myitem.quantity = Number(myitem.quantity) + Number(quantity);
-        myitem.subtotal = myitem.quantity * product.rating;
-
-        cart.items[itemIdx] = myitem;
-        this.recalCart(cart);
-        return cart.save();
+        const myItem = cart.items[itemIdx];
+        myItem.quantity += item.quantity;
+        myItem.subtotal = myItem.quantity * product.rating;
+        cart.items[itemIdx] = myItem;
       } else {
-        cart.items.push({ ...item, subtotal });
-        this.recalCart(cart);
-        return cart.save();
+        cart.items.push({
+          ...item,
+          subtotal: product.rating * item.quantity,
+        });
       }
+
+      await this.recalCart(cart);
+      return this.cartRepository.updateCart(cart);
     } else {
-      const newCart = await this.createCart(userid, item, subtotal, subtotal);
-      product.stock -= quantity;
-      return newCart;
+      return this.createCart(
+        userId,
+        item,
+        product.rating * item.quantity,
+        product.rating * item.quantity,
+      );
     }
   }
 
-  async removeItemFromCart(userid: string, pid: string): Promise<any> {
-    const cartt = await this.getCart(userid);
+  async removeItemFromCart(userId: string, productId: string) {
+    const cart = await this.getCart(userId);
 
-    const itemIdx = cartt.items.findIndex(
-      (item) => item.productId.toString() == pid,
+    const itemIdx = cart.items.findIndex(
+      (i) => i.productId.toString() === productId,
     );
 
     if (itemIdx > -1) {
-      cartt.items.splice(itemIdx, 1);
-      this.recalCart(cartt);
-      return cartt.save();
+      cart.items.splice(itemIdx, 1);
+      await this.recalCart(cart);
+      return this.cartRepository.updateCart(cart);
     }
   }
 
@@ -129,9 +101,7 @@ export class OrdersService {
     const session = await this.orderModel.startSession();
     session.startTransaction();
     try {
-      const cart = await this.CartModel.findOne({ userId: userId })
-        .session(session)
-        .exec();
+      const cart = await this.cartRepository.findCartByUserId(userId);
 
       if (!cart) {
         throw new RpcException('Cart empty');
@@ -238,5 +208,15 @@ export class OrdersService {
     } finally {
       session.endSession();
     }
+  }
+  private async recalCart(cart: CartDocument) {
+    cart.totalPrice = 0;
+    for (const item of cart.items) {
+      const product: any = await this.productsClient
+        .send({ cmd: 'getProduct' }, item.productId.toString())
+        .toPromise();
+      cart.totalPrice += item.quantity * product.rating;
+    }
+    return cart.save();
   }
 }

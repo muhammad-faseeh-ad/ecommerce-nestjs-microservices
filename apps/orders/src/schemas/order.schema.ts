@@ -2,6 +2,8 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { SchemaTypes, Types } from 'mongoose';
 import { Item } from './item.schema';
 
+export type OrderDocument = Order & Document;
+
 @Schema({
   timestamps: true,
 })

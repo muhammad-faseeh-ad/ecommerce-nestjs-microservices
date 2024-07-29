@@ -7,7 +7,7 @@ async function bootstrap() {
     ProductsModule,
     {
       transport: Transport.TCP,
-      options: { port: 3001 },
+      options: { host: 'products', port: 3001 },
     },
   );
 

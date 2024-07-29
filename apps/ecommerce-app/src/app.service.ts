@@ -1,7 +1,7 @@
-import { HttpException, Inject, Injectable } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { Product } from 'apps/products/src/schemas/product.schema';
-import { Observable } from 'rxjs';
+import { catchError, Observable, throwError } from 'rxjs';
 import { CreateProductDto } from 'shared/dtos/create-product-dto';
 import { CreateUserDto } from 'shared/dtos/create-user-dtos';
 import { FilterProductDto } from 'shared/dtos/filter-product-dto';
@@ -20,9 +20,41 @@ export class AppService {
   }
 
   async login(user): Promise<Observable<{ access_token: string }>> {
-    return this.authClient.send({ cmd: 'login' }, user);
+    return this.authClient.send({ cmd: 'login' }, user).pipe(
+      catchError((err) => {
+        let status = HttpStatus.UNAUTHORIZED;
+        let message = 'Invalid credentials';
+
+        if (err instanceof RpcException) {
+          const errorResponse = err.getError();
+          if (typeof errorResponse === 'string') {
+            message = errorResponse;
+          } else if (
+            typeof errorResponse === 'object' &&
+            errorResponse !== null
+          ) {
+            status = this.getHttpStatusFromRpcCode(errorResponse['code']);
+            message = errorResponse['message'] || 'Internal server error';
+          }
+        }
+
+        return throwError(() => new HttpException(message, status));
+      }),
+    );
   }
 
+  private getHttpStatusFromRpcCode(rpcCode: number): HttpStatus {
+    switch (rpcCode) {
+      case 5: // NotFound
+        return HttpStatus.NOT_FOUND;
+      case 7: // PermissionDenied
+        return HttpStatus.FORBIDDEN;
+      case 16: // Unauthenticated
+        return HttpStatus.UNAUTHORIZED;
+      default:
+        return HttpStatus.INTERNAL_SERVER_ERROR;
+    }
+  }
   //PRODUCTS
   async getProducts(
     filterProductDto: FilterProductDto,

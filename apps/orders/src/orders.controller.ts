@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { MessagePattern, RpcException } from '@nestjs/microservices';
 import { Order } from './schemas/order.schema';
@@ -6,11 +6,6 @@ import { Order } from './schemas/order.schema';
 @Controller()
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
-
-  @Get()
-  getHello(): string {
-    return this.ordersService.getHello();
-  }
 
   @MessagePattern({ cmd: 'getCart' })
   async getUserCart(userId: any) {

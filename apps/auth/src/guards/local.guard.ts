@@ -14,7 +14,7 @@ export class LocalAuthGuard implements CanActivate {
 
     const user = await this.authService.validateUser(username, password);
     if (!user) {
-      throw new RpcException('Unauthorized');
+      throw new RpcException('Unauthorized By Me');
     }
 
     const rpcContext: RpcContext = context.switchToRpc().getContext();

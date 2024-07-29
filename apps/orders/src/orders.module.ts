@@ -11,6 +11,8 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { UserSchema } from './schemas/user.schema';
 import { ProductSchema } from './schemas/product.schema';
 import { ConfigModule } from '@nestjs/config';
+import { OrderRepository } from './order.repository';
+import { CartRepository } from './cart.repository';
 
 @Module({
   imports: [
@@ -36,6 +38,6 @@ import { ConfigModule } from '@nestjs/config';
     }),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService, JwtStrategy],
+  providers: [OrdersService, JwtStrategy, OrderRepository, CartRepository],
 })
 export class OrdersModule {}
