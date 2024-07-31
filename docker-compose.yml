@@ -11,7 +11,6 @@ services:
       NODE_ENV: production
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
-      REDIS_HOST: redis
     depends_on:
       - rabbitmq
       - mongo1
@@ -28,7 +27,6 @@ services:
       NODE_ENV: production
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
-      REDIS_HOST: redis
     depends_on:
       - rabbitmq
       - mongo1
@@ -45,7 +43,6 @@ services:
       NODE_ENV: production
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
-      REDIS_HOST: redis
     depends_on:
       - mongo1
       - rabbitmq
@@ -63,7 +60,7 @@ services:
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
       RABBIT_MQ_URI: ${RABBIT_MQ_URI}
-      REDIS_HOST: redis
+
     depends_on:
       - auth
       - products

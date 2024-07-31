@@ -4,19 +4,16 @@ import { ItemDto } from 'shared/dtos/item.dto';
 import { Order } from './schemas/order.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose from 'mongoose';
-import { Cache } from 'cache-manager';
+import Redis from 'ioredis';
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectModel(Order.name) private orderModel: mongoose.Model<Order>,
     @Inject('PRODUCTSMS') private productsClient: ClientProxy,
-    @Inject('CACHE_MANAGER') private cacheManager: Cache,
+    @Inject('REDIS_CLIENT') private readonly redisClient: Redis,
   ) {}
 
-  private getCartCacheKey(userId: string): string {
-    return `cart:${userId}`;
-  }
   async createCart(
     userId: string,
     item: ItemDto,
@@ -31,37 +28,20 @@ export class OrdersService {
       throw new RpcException('Required quantity not available');
     }
 
-    // Create cart in Redis
-    const cart = {
-      userId,
-      items: [item],
-      totalPrice,
-    };
-
-    await this.cacheManager.set(
-      this.getCartCacheKey(userId),
-      JSON.stringify(cart),
-      600000,
-    );
+    const cart = { userId, items: [item], totalPrice };
+    await this.redisClient.set(`cart:${userId}`, JSON.stringify(cart));
+    await this.redisClient.expire(`cart:${userId}`, 600);
 
     return cart;
   }
 
   async getCart(userId: string) {
-    const cacheKey = this.getCartCacheKey(userId);
-    const cachedCart = await this.cacheManager.get(cacheKey);
-
-    if (cachedCart) {
-      return JSON.parse(cachedCart as string);
-    }
-
-    // If not in cache, return null or handle appropriately
-    return null;
+    const cart = await this.redisClient.get(`cart:${userId}`);
+    return cart ? JSON.parse(cart) : null;
   }
 
   async deleteCart(userId: string) {
-    // Remove from Redis cache
-    await this.cacheManager.del(this.getCartCacheKey(userId));
+    await this.redisClient.del(`cart:${userId}`);
   }
 
   async addItemToCart(userId: string, item: ItemDto) {
@@ -93,13 +73,7 @@ export class OrdersService {
       }
 
       await this.recalCart(cart);
-
-      // Update cart in Redis cache
-      await this.cacheManager.set(
-        this.getCartCacheKey(userId),
-        JSON.stringify(cart),
-      );
-
+      await this.redisClient.set(`cart:${userId}`, JSON.stringify(cart));
       return cart;
     } else {
       return this.createCart(
@@ -114,29 +88,22 @@ export class OrdersService {
   async removeItemFromCart(userId: string, productId: string) {
     const cart = await this.getCart(userId);
 
-    if (cart) {
-      const itemIdx = cart.items.findIndex(
-        (i) => i.productId.toString() === productId,
-      );
+    const itemIdx = cart.items.findIndex(
+      (i) => i.productId.toString() === productId,
+    );
 
-      if (itemIdx > -1) {
-        cart.items.splice(itemIdx, 1);
-        await this.recalCart(cart);
-
-        // Update cart in Redis cache
-        await this.cacheManager.set(
-          this.getCartCacheKey(userId),
-          JSON.stringify(cart),
-        );
-
-        return cart;
-      }
+    if (itemIdx > -1) {
+      cart.items.splice(itemIdx, 1);
+      await this.recalCart(cart);
+      await this.redisClient.set(`cart:${userId}`, JSON.stringify(cart));
+      return cart;
     }
   }
 
   async findOrder(userId: string, id: string): Promise<Order> {
     return await this.orderModel.findOne({ _id: id, userId: userId });
   }
+
   async createOrder(userId: string): Promise<Order> {
     const session = await this.orderModel.startSession();
     session.startTransaction();
@@ -241,7 +208,7 @@ export class OrdersService {
 
       await session.commitTransaction();
 
-      return cancelledOrder;
+      return await cancelledOrder.populate({ path: 'userId', model: 'User' });
     } catch (error) {
       await session.abortTransaction();
       throw error;
@@ -249,14 +216,8 @@ export class OrdersService {
       session.endSession();
     }
   }
-  private async recalCart(cart: any) {
-    cart.totalPrice = 0;
-    for (const item of cart.items) {
-      const product: any = await this.productsClient
-        .send({ cmd: 'getProduct' }, item.productId.toString())
-        .toPromise();
-      cart.totalPrice += item.quantity * product.rating;
-    }
-    return cart.save();
+
+  async recalCart(cart) {
+    cart.totalPrice = cart.items.reduce((acc, item) => acc + item.subtotal, 0);
   }
 }
