@@ -6,8 +6,11 @@ async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
     OrdersModule,
     {
-      transport: Transport.TCP,
-      options: { host: 'orders', port: 3003 },
+      transport: Transport.RMQ,
+      options: {
+        urls: [process.env.RABBIT_MQ_URI],
+        queue: 'orders-queue',
+      },
     },
   );
   await app.listen();

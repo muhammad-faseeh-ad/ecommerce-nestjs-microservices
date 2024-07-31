@@ -12,20 +12,22 @@ import { ConfigModule } from '@nestjs/config';
 
 function createClientOptions(
   name: string,
-  host: string,
-  port: number,
+  queue: string,
 ): ClientProviderOptions {
   return {
     name,
-    transport: Transport.TCP,
-    options: { host, port },
+    transport: Transport.RMQ,
+    options: {
+      urls: [process.env.RABBIT_MQ_URI],
+      queue,
+    },
   };
 }
 
 const microservicesClients = [
-  createClientOptions('PRODUCTS', 'product', 3001),
-  createClientOptions('AUTH', 'auth', 3002),
-  createClientOptions('ORDERS', 'orders', 3003),
+  createClientOptions('PRODUCTS', 'products-queue'),
+  createClientOptions('AUTH', 'auth-queue'),
+  createClientOptions('ORDERS', 'orders-queue'),
 ];
 
 @Module({

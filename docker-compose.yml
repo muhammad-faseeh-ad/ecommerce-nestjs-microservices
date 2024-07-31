@@ -12,6 +12,7 @@ services:
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
     depends_on:
+      - rabbitmq
       - mongo1
 
   products:
@@ -26,6 +27,7 @@ services:
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
     depends_on:
+      - rabbitmq
       - mongo1
 
   orders:
@@ -41,6 +43,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - mongo1
+      - rabbitmq
 
   ecommerce-app:
     build:
@@ -53,10 +56,13 @@ services:
       NODE_ENV: production
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
+      RABBIT_MQ_URI: ${RABBIT_MQ_URI}
+
     depends_on:
       - auth
       - products
       - orders
+      - rabbitmq
 
   mongo1:
     image: mongo
@@ -68,5 +74,18 @@ services:
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh:ro
     entrypoint: ["/bin/bash", "/docker-entrypoint-initdb.d/init-mongo.sh"]
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
 volumes:
   mongo1_data:
+  rabbitmq_data:

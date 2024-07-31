@@ -20,8 +20,11 @@ import { CartRepository } from './cart.repository';
     ClientsModule.register([
       {
         name: 'PRODUCTSMS',
-        transport: Transport.TCP,
-        options: { host: 'products', port: 3001 },
+        transport: Transport.RMQ,
+        options: {
+          urls: [process.env.RABBIT_MQ_URI],
+          queue: 'products-queue',
+        },
       },
     ]),
     MongooseModule.forRoot(process.env.DB_URI),
