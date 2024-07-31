@@ -29,9 +29,7 @@ export class OrdersController {
 
   @MessagePattern({ cmd: 'deleteCart' })
   async deleteCart(userId: any) {
-    const cart = await this.ordersService.deleteCart(userId);
-    if (!cart) throw new RpcException('Cart does not exist');
-    return cart;
+    await this.ordersService.deleteCart(userId);
   }
 
   @MessagePattern({ cmd: 'findOrder' })

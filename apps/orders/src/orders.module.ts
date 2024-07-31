@@ -12,10 +12,24 @@ import { UserSchema } from './schemas/user.schema';
 import { ProductSchema } from './schemas/product.schema';
 import { ConfigModule } from '@nestjs/config';
 import { OrderRepository } from './order.repository';
-import { CartRepository } from './cart.repository';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 
 @Module({
   imports: [
+    CacheModule.registerAsync({
+      isGlobal: true,
+      useFactory: async () => {
+        const store = await redisStore({
+          ttl: 600 * 1000,
+          socket: {
+            host: 'redis',
+            port: 6379,
+          },
+        });
+        return { store };
+      },
+    }),
     ConfigModule.forRoot(),
     ClientsModule.register([
       {
@@ -41,6 +55,6 @@ import { CartRepository } from './cart.repository';
     }),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService, JwtStrategy, OrderRepository, CartRepository],
+  providers: [OrdersService, JwtStrategy, OrderRepository],
 })
 export class OrdersModule {}

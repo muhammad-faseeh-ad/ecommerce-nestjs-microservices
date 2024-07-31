@@ -32,7 +32,7 @@ const microservicesClients = [
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({ isGlobal: true }),
     JwtModule.register({
       secret: process.env.SECRET_KEY,
       signOptions: { expiresIn: 3000 },

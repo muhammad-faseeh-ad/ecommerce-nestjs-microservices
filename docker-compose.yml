@@ -11,9 +11,11 @@ services:
       NODE_ENV: production
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
+      REDIS_HOST: redis
     depends_on:
       - rabbitmq
       - mongo1
+      - redis
 
   products:
     build:
@@ -26,9 +28,11 @@ services:
       NODE_ENV: production
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
+      REDIS_HOST: redis
     depends_on:
       - rabbitmq
       - mongo1
+      - redis
 
   orders:
     build:
@@ -41,9 +45,11 @@ services:
       NODE_ENV: production
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
+      REDIS_HOST: redis
     depends_on:
       - mongo1
       - rabbitmq
+      - redis
 
   ecommerce-app:
     build:
@@ -57,12 +63,13 @@ services:
       DB_URI: mongodb://mongo1:27017/?replicaSet=rs0
       SECRET_KEY: ${SECRET_KEY}
       RABBIT_MQ_URI: ${RABBIT_MQ_URI}
-
+      REDIS_HOST: redis
     depends_on:
       - auth
       - products
       - orders
       - rabbitmq
+      - redis
 
   mongo1:
     image: mongo
@@ -85,6 +92,12 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
 
 volumes:
   mongo1_data:

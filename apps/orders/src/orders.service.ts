@@ -1,20 +1,22 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { CartRepository } from './cart.repository';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { ItemDto } from 'shared/dtos/item.dto';
 import { Order } from './schemas/order.schema';
-import { CartDocument } from './schemas/cart.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose from 'mongoose';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class OrdersService {
   constructor(
-    private cartRepository: CartRepository,
     @InjectModel(Order.name) private orderModel: mongoose.Model<Order>,
     @Inject('PRODUCTSMS') private productsClient: ClientProxy,
+    @Inject('CACHE_MANAGER') private cacheManager: Cache,
   ) {}
 
+  private getCartCacheKey(userId: string): string {
+    return `cart:${userId}`;
+  }
   async createCart(
     userId: string,
     item: ItemDto,
@@ -29,15 +31,37 @@ export class OrdersService {
       throw new RpcException('Required quantity not available');
     }
 
-    return this.cartRepository.createCart(userId, [item], totalPrice);
+    // Create cart in Redis
+    const cart = {
+      userId,
+      items: [item],
+      totalPrice,
+    };
+
+    await this.cacheManager.set(
+      this.getCartCacheKey(userId),
+      JSON.stringify(cart),
+      600000,
+    );
+
+    return cart;
   }
 
   async getCart(userId: string) {
-    return this.cartRepository.findCartByUserId(userId);
+    const cacheKey = this.getCartCacheKey(userId);
+    const cachedCart = await this.cacheManager.get(cacheKey);
+
+    if (cachedCart) {
+      return JSON.parse(cachedCart as string);
+    }
+
+    // If not in cache, return null or handle appropriately
+    return null;
   }
 
   async deleteCart(userId: string) {
-    return this.cartRepository.deleteCartByUserId(userId);
+    // Remove from Redis cache
+    await this.cacheManager.del(this.getCartCacheKey(userId));
   }
 
   async addItemToCart(userId: string, item: ItemDto) {
@@ -69,7 +93,14 @@ export class OrdersService {
       }
 
       await this.recalCart(cart);
-      return this.cartRepository.updateCart(cart);
+
+      // Update cart in Redis cache
+      await this.cacheManager.set(
+        this.getCartCacheKey(userId),
+        JSON.stringify(cart),
+      );
+
+      return cart;
     } else {
       return this.createCart(
         userId,
@@ -83,14 +114,23 @@ export class OrdersService {
   async removeItemFromCart(userId: string, productId: string) {
     const cart = await this.getCart(userId);
 
-    const itemIdx = cart.items.findIndex(
-      (i) => i.productId.toString() === productId,
-    );
+    if (cart) {
+      const itemIdx = cart.items.findIndex(
+        (i) => i.productId.toString() === productId,
+      );
 
-    if (itemIdx > -1) {
-      cart.items.splice(itemIdx, 1);
-      await this.recalCart(cart);
-      return this.cartRepository.updateCart(cart);
+      if (itemIdx > -1) {
+        cart.items.splice(itemIdx, 1);
+        await this.recalCart(cart);
+
+        // Update cart in Redis cache
+        await this.cacheManager.set(
+          this.getCartCacheKey(userId),
+          JSON.stringify(cart),
+        );
+
+        return cart;
+      }
     }
   }
 
@@ -101,7 +141,7 @@ export class OrdersService {
     const session = await this.orderModel.startSession();
     session.startTransaction();
     try {
-      const cart = await this.cartRepository.findCartByUserId(userId);
+      const cart = await this.getCart(userId);
 
       if (!cart) {
         throw new RpcException('Cart empty');
@@ -209,7 +249,7 @@ export class OrdersService {
       session.endSession();
     }
   }
-  private async recalCart(cart: CartDocument) {
+  private async recalCart(cart: any) {
     cart.totalPrice = 0;
     for (const item of cart.items) {
       const product: any = await this.productsClient
